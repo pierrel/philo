@@ -7,6 +7,8 @@
 
 (def start "/wiki/Michel_Foucault")
 
+(def sec (partial * 1000))
+
 (defn person [el]
   {:name (-> el :attrs :title)
    :path (-> el :attrs :href)})
@@ -15,8 +17,15 @@
   (log/info (str "processing " path))
   (let [doc (wiki/parse path)]
     {:name (-> (wiki/name doc) first :content first)
+     :path path
      :influences (map person (wiki/influences doc))
      :influenced (map person (wiki/influenced doc))}))
+
+(defn proc-to-paths
+  "Returns a list of paths from `proc` the ouput of process"
+  [proc]
+  (concat (map :path (:influences proc))
+          (map :path (:incluenced proc))))
 
 (defn influence-edges [path people-paths forward?]
   (loop [edges (data/edge)
@@ -36,50 +45,57 @@
    (influence-edges path (inf-paths info :influences) false)
    (influence-edges path (inf-paths info :influenced) true)))
 
-(defn process-chan [c]
+(defn edge-chan
+  "Takes the processed maps from `c` and constructs the relationship map."
+  [c]
+  (async/go
+    (loop [res (data/edge)
+           latest (async/<! c)]
+      (if latest
+        (recur (data/merge-edges res
+                                 (edges (:path latest) latest))
+               (async/<! c))
+        res))))
+
+(defn process-chan
+  "Uses the process function to process everything in `c`.
+
+  Outputs the result of processed paths to `out`. Does not
+  revisit paths."
+  [c out]
   (async/go
     (loop [visited {}
-           processed (list)
            latest (async/<! c)]
       (if latest
         (if (visited latest)
-          (recur visited processed (async/<! c))
-          (recur (assoc visited latest true)
-                 (cons (process latest) processed)
-                 (async/<! c)))
-        processed))))
-
-
-(defn go2
-  ([path depth]
-   (go2 path depth {}))
-  ([path depth visited]
-   (let [input (async/chan)
-         processing (process-chan input)]
-     (async/>!! input path)
-     (async/>!! input "/wiki/Kazimierz_Twardowski")
-     (async/close! input)
-     (println (apply str (async/<!! processing))))))
+          (recur visited (async/<! c))
+          (let [data (process latest)
+                paths (proc-to-paths data)]
+            (async/go
+              (async/>! out data)
+              (doseq [path paths] (async/>! c path)))
+            (recur (assoc visited latest true)
+                   (async/<! c))))
+        (async/close! out)))))
 
 (defn go
-  ([path depth]
-   (go path depth {}))
-  ([path depth visited]
-   (if (or (visited path) (= depth 0))
-     (data/edge)
-     (let [info (process path)
-           page-data (edges path info)
-           new-vis (assoc visited path true)
-           next (concat (inf-paths info :influences)
-                        (inf-paths info :influenced))]
-       (data/merge-edges (reduce data/merge-edges
-                                 (map #(go % (dec depth) new-vis)
-                                      next))
-                         page-data)))))
+  ([path timeout]
+   (go path timeout {}))
+  ([path timeout visited]
+   (let [input (async/chan)
+         edges (async/chan)
+         time (async/timeout (sec timeout))
+         processing (process-chan input edges)
+         edging (edge-chan edges)]
+     (async/>!! input path)
+     (async/<!! time)
+     (async/close! input)
+     (async/<!! edging))))
 
 (defn -main [& args]
-  (let [depth (Integer/parseInt (or (first args) "2"))
-        philos (go start depth)
+  (let [timeout (Integer/parseInt (or (first args) "20"))
+        philos (go start timeout)
         nodes (data/all-elems philos)]
+    (log/info "Processed " (count nodes) " nodes in " timeout " seconds.")
     (println (dot/graph-map philos nodes))))
 
