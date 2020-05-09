@@ -1,7 +1,8 @@
 (ns philo.core
   (:require [philo.wiki :as wiki]
             [philo.data :as data]
-            [philo.dot :as dot]))
+            [philo.dot :as dot]
+            [clojure.tools.logging :as log]))
 
 (def start "/wiki/Michel_Foucault")
 
@@ -10,6 +11,7 @@
    :path (-> el :attrs :href)})
 
 (defn process [path]
+  (log/info (str "processing " path))
   (let [doc (wiki/parse path)]
     {:name (-> (wiki/name doc) first :content first)
      :influences (map person (wiki/influences doc))
