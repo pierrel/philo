@@ -52,7 +52,7 @@
                          page-data)))))
 
 (defn -main [& args]
-  (let [depth (or (nth args 0) 2)
+  (let [depth (Integer/parseInt (or (first args) "2"))
         philos (go start depth)
         nodes (data/all-elems philos)]
     (println (dot/graph-map philos nodes))))
