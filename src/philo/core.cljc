@@ -2,7 +2,8 @@
   (:require [philo.wiki :as wiki]
             [philo.data :as data]
             [philo.dot :as dot]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [clojure.core.async :as async]))
 
 (def start "/wiki/Michel_Foucault")
 
@@ -34,6 +35,31 @@
   (data/merge-edges
    (influence-edges path (inf-paths info :influences) false)
    (influence-edges path (inf-paths info :influenced) true)))
+
+(defn process-chan [c]
+  (async/go
+    (loop [visited {}
+           processed (list)
+           latest (async/<! c)]
+      (if latest
+        (if (visited latest)
+          (recur visited processed (async/<! c))
+          (recur (assoc visited latest true)
+                 (cons (process latest) processed)
+                 (async/<! c)))
+        processed))))
+
+
+(defn go2
+  ([path depth]
+   (go2 path depth {}))
+  ([path depth visited]
+   (let [input (async/chan)
+         processing (process-chan input)]
+     (async/>!! input path)
+     (async/>!! input "/wiki/Kazimierz_Twardowski")
+     (async/close! input)
+     (println (apply str (async/<!! processing))))))
 
 (defn go
   ([path depth]

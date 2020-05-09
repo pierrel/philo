@@ -1,5 +1,6 @@
 {:deps
  {org.clojure/clojure {:mvn/version "1.10.1"}
+  org.clojure/core.async {:mvn/version "1.1.587"}
   hickory {:mvn/version "0.7.1"}
   clj-http {:mvn/version "2.3.0"}
   org.clojure/tools.logging {:mvn/version "1.1.0"}}}
