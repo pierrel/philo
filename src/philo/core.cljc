@@ -40,10 +40,10 @@
 (defn- inf-paths [info type]
   (map :path (info type)))
 
-(defn edges [path info]
+(defn edges [info]
   (data/merge-edges
-   (influence-edges path (inf-paths info :influences) false)
-   (influence-edges path (inf-paths info :influenced) true)))
+   (influence-edges (:path info) (inf-paths info :influences) false)
+   (influence-edges (:path info) (inf-paths info :influenced) true)))
 
 (defn edge-chan
   "Takes the processed maps from `c` and constructs the relationship map."
@@ -53,7 +53,7 @@
            latest (async/<! c)]
       (if latest
         (recur (data/merge-edges res
-                                 (edges (:path latest) latest))
+                                 (edges latest))
                (async/<! c))
         res))))
 
