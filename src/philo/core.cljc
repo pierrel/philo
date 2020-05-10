@@ -97,5 +97,5 @@
         philos (go start timeout)
         nodes (data/all-elems philos)]
     (log/info "Processed " (count nodes) " nodes in " timeout " seconds.")
-    (println (dot/graph-map philos nodes))))
+    (println (dot/graph-map philos nodes identity))))
 

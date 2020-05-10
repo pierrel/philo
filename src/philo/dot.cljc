@@ -35,17 +35,17 @@
 (defn edges [from tos]
   (s/join "" (map (partial edge from) tos)))
 
-(defn set-label [label node]
-  (str node " [ label = \"" label "\" ];\n"))
+(defn set-label [label node name-map]
+  (str node " [ label = \"" (name-map label) "\" ];\n"))
 
-(defn set-labels [labels]
-  (s/join "" (map #(apply set-label %) labels)))
+(defn set-labels [labels name-map]
+  (s/join "" (map #(apply set-label (concat % (list name-map))) labels)))
 
-(defn graph-map [data nodes]
+(defn graph-map [data nodes name-map]
   (let [labels (gen-labels nodes)
         converted-data (convert-to-labels data labels)]
     (graph
-     (set-labels labels)
+     (set-labels labels name-map)
      (s/join "" (map (fn [[key val]]
                        (edges key val))
                      converted-data)))))
