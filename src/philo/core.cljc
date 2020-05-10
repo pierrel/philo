@@ -27,6 +27,19 @@
   (concat (map :path (:influences proc))
           (map :path (:incluenced proc))))
 
+(defn proc-to-names
+  "Returns a map of path -> name"
+  [proc]
+  (loop [res {}
+         remaining (concat (list proc)
+                           (:influenced proc)
+                           (:influences proc))]
+    (if (empty? remaining)
+      res
+      (let [person (first remaining)]
+        (recur (assoc res (:path person) (:name person))
+               (rest remaining))))))
+
 (defn influence-edges [path people-paths forward?]
   (loop [edges (data/edge)
          remaining people-paths]
@@ -61,22 +74,26 @@
   "Uses the process function to process everything in `c`.
 
   Outputs the result of processed paths to `out`. Does not
-  revisit paths."
+  revisit paths. Returns a map of path -> name."
   [c out]
   (async/go
     (loop [visited {}
+           name-map {}
            latest (async/<! c)]
       (if latest
         (if (visited latest)
-          (recur visited (async/<! c))
+          (recur visited name-map (async/<! c))
           (let [data (process latest)
                 paths (proc-to-paths data)]
             (async/go
               (async/>! out data)
               (doseq [path paths] (async/>! c path)))
             (recur (assoc visited latest true)
+                   (merge name-map (proc-to-names data))
                    (async/<! c))))
-        (async/close! out)))))
+        (do
+          (async/close! out)
+          name-map)))))
 
 (defn go
   ([path timeout]
@@ -90,12 +107,13 @@
      (async/>!! input path)
      (async/<!! time)
      (async/close! input)
-     (async/<!! edging))))
+     [(async/<!! edging)
+      (async/<!! processing)])))
 
 (defn -main [& args]
   (let [timeout (Integer/parseInt (or (first args) "20"))
-        philos (go start timeout)
+        [philos name-map] (go start timeout)
         nodes (data/all-elems philos)]
     (log/info "Processed " (count nodes) " nodes in " timeout " seconds.")
-    (println (dot/graph-map philos nodes identity))))
+    (println (dot/graph-map philos nodes name-map))))
 
