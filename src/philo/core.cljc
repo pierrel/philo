@@ -97,19 +97,23 @@
           name-map)))))
 
 (defn go
-  ([path timeout]
-   (go path timeout {}))
-  ([path timeout visited]
-   (let [input (async/chan)
-         edges (async/chan)
-         time (async/timeout (sec timeout))
-         processing (process-chan input edges)
-         edging (edge-chan edges)]
-     (async/>!! input path)
-     (async/<!! time)
-     (async/close! input)
-     [(async/<!! edging)
-      (async/<!! processing)])))
+  "Processes philosopher relationships from wikipedia.
+
+  `path` is the initial wikipedia page (like /wiki/something).
+  `timeout` is the max time to spend processing pages (in seconds).
+  Returns a vector of [relationship paths, path -> name map]."
+  [path timeout]
+  (let [input (async/chan)
+        edges (async/chan)
+        time (async/timeout (sec timeout))
+        processing (process-chan input edges)
+        edging (edge-chan edges)]
+    (async/>!! input path) ; Starts the processing
+    (async/<!! time) ; waits for the timeout
+    (async/close! input) ; stops processing
+    ;; Waits for the rest of the processing
+    [(async/<!! edging)
+     (async/<!! processing)]))
 
 (defn -main [& args]
   (let [timeout (Integer/parseInt (or (first args) "20"))
