@@ -27,19 +27,30 @@
 (def influences-text
   (sel/find-in-text #"Influences"))
 
-(defn influence-sel [text-sel]
+(defn rel-sel [text-sel]
   (sel/descendant
    (sel/has-child (sel/descendant biography
                                   text-sel))
    links))
 
-(defn name [doc]
-  (sel/select (sel/id "firstHeading") doc))
+(defn heading [doc]
+  (-> (sel/select (sel/id "firstHeading") doc)
+      first
+      :content
+      first))
 
-(defn influences [doc]
-  (sel/select (influence-sel influences-text)
+(defn relations [doc text-sel]
+  (sel/select (rel-sel text-sel)
               doc))
 
+(defn influences [doc]
+  (relations doc influences-text))
+
 (defn influenced [doc]
-  (sel/select  (influence-sel influenced-text)
-               doc))
+  (relations doc influenced-text))
+
+(defn rel-name [el]
+  (-> el :attrs :title))
+
+(defn rel-path [el]
+  (-> el :attrs :href))

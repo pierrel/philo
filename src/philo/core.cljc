@@ -10,17 +10,28 @@
 
 (def sec (partial * 1000))
 
-(defn person [el]
-  {:name (-> el :attrs :title)
-   :path (-> el :attrs :href)})
+(defn person-from-rel
+  "An element on the page will not have relationship information"
+  [el]
+  {:name (wiki/rel-name el)
+   :path (wiki/rel-path el)})
+
+(defn rel-from-doc [doc]
+  {:influences (map person-from-rel (wiki/influences doc))
+   :influenced (map person-from-rel (wiki/influenced doc))})
+
+(defn person-from-doc [doc path]
+  {:name (wiki/heading doc)
+   :path path})
+
+(defn personrel-from-doc [doc path]
+  (merge (person-from-doc doc path)
+         (rel-from-doc doc)))
 
 (defn process [path]
   (log/info (str "processing " path))
-  (let [doc (wiki/parse path)]
-    {:name (-> (wiki/name doc) first :content first)
-     :path path
-     :influences (map person (wiki/influences doc))
-     :influenced (map person (wiki/influenced doc))}))
+  (personrel-from-doc (wiki/parse path)
+                   path))
 
 (defn proc-to-paths
   "Returns a list of paths from `proc` the ouput of process"
