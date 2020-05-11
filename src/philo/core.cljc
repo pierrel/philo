@@ -2,6 +2,7 @@
   (:require [philo.wiki :as wiki]
             [philo.data :as data]
             [philo.dot :as dot]
+            [philo.csv :as csv]
             [clojure.tools.logging :as log]
             [clojure.core.async :as async]))
 
@@ -112,8 +113,11 @@
 
 (defn -main [& args]
   (let [timeout (Integer/parseInt (or (first args) "20"))
+        format (or (second args) "csv")
         [philos name-map] (go start timeout)
         nodes (data/all-elems philos)]
     (log/info "Processed " (count nodes) " nodes in " timeout " seconds.")
-    (println (dot/graph-map philos nodes name-map))))
+    (if (= format "csv")
+      (csv/print-csv philos name-map)
+      (println (dot/graph-map philos nodes name-map)))))
 

@@ -19,3 +19,17 @@
   (let [keys (set (keys edge-map))
         values (apply s/union (vals edge-map))]
     (s/union keys values)))
+
+(defn- flatten-single [key val-set]
+  (vec (map (fn [val] [key val]) val-set)))
+
+(defn flat
+  "Returns a collection of 2-tuples from -> to"
+  [edge-map]
+  (loop [acc []
+         rem (vec edge-map)]
+    (if (empty? rem)
+      acc
+      (recur (apply (partial conj acc)
+                    (apply flatten-single (first rem)))
+             (rest rem)))))
