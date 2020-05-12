@@ -73,39 +73,37 @@
 (defn edge-chan
   "Takes the processed maps from `c` and constructs the relationship map."
   [c]
-  (async/go
-    (loop [res (data/edge)
-           latest (async/<! c)]
-      (if latest
-        (recur (data/merge-edges res
-                                 (edges latest))
-               (async/<! c))
-        res))))
+  (async/go-loop [res (data/edge)
+                  latest (async/<! c)]
+    (if latest
+      (recur (data/merge-edges res
+                               (edges latest))
+             (async/<! c))
+      res)))
 
 (defn process-chan
   "Uses the process function to process everything in `c`.
 
   Outputs the result of processed paths to `out`. Does not
   revisit paths. Returns a map of path -> name."
-  [c out]
-  (async/go
-    (loop [visited {}
-           name-map {}
-           latest (async/<! c)]
-      (if latest
-        (if (visited latest)
-          (recur visited name-map (async/<! c))
-          (let [data (process latest)
-                paths (proc-to-paths data)]
-            (async/go
-              (async/>! out data)
-              (doseq [path paths] (async/>! c path)))
-            (recur (assoc visited latest true)
-                   (merge name-map (proc-to-names data))
-                   (async/<! c))))
-        (do
-          (async/close! out)
-          name-map)))))
+  [in out]
+  (async/go-loop [visited {}
+         name-map {}
+         latest (async/<! in)]
+    (if latest
+      (if (visited latest)
+        (recur visited name-map (async/<! in))
+        (let [data (process latest)
+              paths (proc-to-paths data)]
+          (async/go
+            (async/>! out data)
+            (doseq [path paths] (async/>! in path)))
+          (recur (assoc visited latest true)
+                 (merge name-map (proc-to-names data))
+                 (async/<! in))))
+      (do
+        (async/close! out)
+        name-map))))
 
 (defn go
   "Processes philosopher relationships from wikipedia.
